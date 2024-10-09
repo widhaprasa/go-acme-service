@@ -64,8 +64,8 @@ func main() {
 	// Initial server time
 	ts := time.Now().UnixMilli()
 
-	// Init schedule for renewal
-	certsService.InitSchedule(ts)
+	// Initiate schedule for renew certificates
+	certsService.InitRenewTicker(ts)
 
 	r := gin.New()
 	r.Use(gin.Logger())

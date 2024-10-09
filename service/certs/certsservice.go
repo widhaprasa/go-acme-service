@@ -86,11 +86,11 @@ func (c *CertsService) GenerateCerts(ts int64, email string, domain string, disa
 	return nil
 }
 
-func (c *CertsService) InitSchedule(ts int64) {
+func (c *CertsService) InitRenewTicker(ts int64) {
 
 	renewInterval := 24 * time.Hour // Default interval, check renew certificates daily
 
-	// Check renew certificates first
+	// Check renew first
 	c.renewCerts(ts)
 
 	ticker := time.NewTicker(renewInterval)
@@ -99,7 +99,7 @@ func (c *CertsService) InitSchedule(ts int64) {
 		for {
 			select {
 			case <-ticker.C:
-				ts := time.Now().UnixNano() / 1e6
+				ts := time.Now().UnixMilli()
 				c.renewCerts(ts)
 			case <-done:
 				ticker.Stop()

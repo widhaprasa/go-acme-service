@@ -54,8 +54,8 @@ func (c *CertsController) GetPrivateKey(ctx *gin.Context) {
 		return
 	}
 
-	domain := data["domain"].(string)
-	if domain == "" {
+	domain, domainOk := data["domain"].(string)
+	if !domainOk || domain == "" {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
@@ -79,8 +79,8 @@ func (c *CertsController) GetCertificate(ctx *gin.Context) {
 		return
 	}
 
-	domain := data["domain"].(string)
-	if domain == "" {
+	domain, domainOk := data["domain"].(string)
+	if !domainOk || domain == "" {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
@@ -98,7 +98,7 @@ func (c *CertsController) GetCertificate(ctx *gin.Context) {
 func (c *CertsController) Generate(ctx *gin.Context) {
 
 	// Server time
-	ts := time.Now().UnixNano() / 1e6
+	ts := time.Now().UnixMilli()
 
 	// Request body
 	var data map[string]any
@@ -107,15 +107,21 @@ func (c *CertsController) Generate(ctx *gin.Context) {
 		return
 	}
 
-	domain := data["domain"].(string)
-	email := data["email"].(string)
-	if domain == "" || email == "" {
+	domain, domainOk := data["domain"].(string)
+	email, emailOk := data["email"].(string)
+
+	if !domainOk || !emailOk || domain == "" || email == "" {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 
+	shouldCheckPropagation, scpOk := data["check_propagation"].(bool)
+	if !scpOk {
+		shouldCheckPropagation = false
+	}
+
 	// Generate certs
-	err := c.CertsService.GenerateCerts(ts, email, domain, false)
+	err := c.CertsService.GenerateCerts(ts, email, domain, !shouldCheckPropagation)
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
