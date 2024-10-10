@@ -1,8 +1,8 @@
-# Let's Encrypt Certificate Generation and Renewal Service
+# go-acme-service
 
 `go-acme-service` is a service for generating and renewing Let's Encrypt certificates as a service. It utilizes the [`go-acme/lego`](https://github.com/go-acme/lego) library and currently supports the DNS Challenge using the Cloudflare provider.
 
-The service is protected using basic authentication for its endpoints.
+The service is protected using basic authentication for its endpoints and stores certificate data using an SQLite database.
 
 ## How to Use
 
@@ -24,6 +24,9 @@ These variables are used to secure the service endpoints with basic authenticati
 ### Service Port
 The default port for the service is **8080**, but you can change it using the environment variable:
 - `SERVICE_PORT`
+
+### SQLite Database
+The service uses an SQLite database located at `db/acme.db` to store certificate-related data. Ensure that this path is available and accessible for proper operation of the service.
 
 ## API Endpoints
 
