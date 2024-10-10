@@ -53,15 +53,16 @@ func (c *ClientService) GetClient(ts int64, email string) (*lego.Client, error) 
 		user.Registration = res
 
 		// Save client to database
-		_, err = c.Clientrepository.UpsertClient(email, user.PrivateKey, ts)
+		_, err = c.Clientrepository.UpsertClient(email, user.Registration.URI, user.PrivateKey, ts)
 		if err != nil {
+			log.Println("Failed to insert client", email, ":", err)
 			return nil, err
 		}
 
 	} else {
 
-		uri := clientMap["id_"].(string)
 		email = clientMap["email"].(string)
+		uri := clientMap["uri"].(string)
 		privateKey := clientMap["private_key"].([]byte)
 
 		user, err := acme.NewUserFull(email, uri, privateKey)
@@ -76,8 +77,8 @@ func (c *ClientService) GetClient(ts int64, email string) (*lego.Client, error) 
 		config.Certificate.KeyType = certcrypto.RSA4096
 		config.UserAgent = fmt.Sprintf("widhaprasa-acme/%s", "1.0")
 
-		// Create client
-		client, err := lego.NewClient(config)
+		// Create ACME client
+		client, err = lego.NewClient(config)
 		if err != nil {
 			log.Println("Unable to create ACME client", email, ":", err)
 			return nil, err

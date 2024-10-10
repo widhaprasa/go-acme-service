@@ -80,6 +80,7 @@ func (c *CertsService) GenerateCerts(ts int64, email string, domain string, disa
 	// Insert certs to database
 	_, err = c.CertsRepository.UpsertCerts(domain, email, privateKey, certificate_, crt.NotBefore.UnixMilli(), crt.NotAfter.UnixMilli(), ts)
 	if err != nil {
+		log.Println("Failed to insert certs", email, ":", err)
 		return err
 	}
 
@@ -163,6 +164,7 @@ func (c *CertsService) renewCerts(ts int64) error {
 			_, err = c.CertsRepository.UpsertCerts(domain, email, renewedCert.PrivateKey, renewedCert.Certificate,
 				crt.NotBefore.UnixMilli(), crt.NotAfter.UnixMilli(), ts)
 			if err != nil {
+				log.Println("Failed to update certs", email, ":", err)
 				return err
 			}
 		}

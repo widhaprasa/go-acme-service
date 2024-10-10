@@ -16,6 +16,7 @@ func (c *ClientRepository) CreateTable() (sql.Result, error) {
 	return c.Db.Exec(`CREATE TABLE IF NOT EXISTS client(
 		id INTEGER PRIMARY KEY,
 		email TEXT UNIQUE,
+		uri TEXT,
 		private_key BLOB,
 		upserted_ts INTEGER
 	);`)
@@ -32,9 +33,10 @@ func (c *ClientRepository) GetClient(email string) (map[string]any, error) {
 
 	row := stmt.QueryRow(email)
 	var id, upsertedTs int
+	var uri string
 	var privateKey []byte
 
-	err = row.Scan(&id, &email, &privateKey)
+	err = row.Scan(&id, &email, &uri, &privateKey, &upsertedTs)
 	if err != nil {
 		return nil, err
 	}
@@ -42,6 +44,7 @@ func (c *ClientRepository) GetClient(email string) (map[string]any, error) {
 	result := map[string]any{
 		"id":          id,
 		"email":       email,
+		"uri":         uri,
 		"private_key": privateKey,
 		"upserted_ts": upsertedTs,
 	}
@@ -49,13 +52,13 @@ func (c *ClientRepository) GetClient(email string) (map[string]any, error) {
 	return result, nil
 }
 
-func (c *ClientRepository) UpsertClient(email string, privateKey []byte, upsertedTs int64) (sql.Result, error) {
+func (c *ClientRepository) UpsertClient(email string, uri string, privateKey []byte, upsertedTs int64) (sql.Result, error) {
 	return c.Db.Exec(`
-		INSERT INTO client(email, private_key, upserted_ts)
-		VALUES(?, ?, ?)
+		INSERT INTO client(email, uri, private_key, upserted_ts)
+		VALUES(?, ?, ?, ?)
 		ON CONFLICT(email)
-		DO UPDATE SET private_key = excluded.private_key, upserted_ts = excluded.upserted_ts;`,
-		email, privateKey, upsertedTs)
+		DO UPDATE SET uri = excluded.uri, private_key = excluded.private_key, upserted_ts = excluded.upserted_ts;`,
+		email, uri, privateKey, upsertedTs)
 }
 
 func (c *ClientRepository) DeleteCerts(email string) (sql.Result, error) {

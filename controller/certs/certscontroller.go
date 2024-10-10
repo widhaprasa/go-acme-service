@@ -23,7 +23,7 @@ func (c *CertsController) List(ctx *gin.Context) {
 		return
 	}
 
-	result := []any{}
+	certs := []any{}
 	for _, v := range list {
 
 		certsMap := v.(map[string]any)
@@ -33,7 +33,7 @@ func (c *CertsController) List(ctx *gin.Context) {
 		notAfterTs := certsMap["not_after_ts"].(int)
 		upsertedTs := certsMap["upserted_ts"].(int)
 
-		result = append(result, map[string]any{
+		certs = append(certs, map[string]any{
 			"domain":        domain,
 			"email":         email,
 			"not_before_ts": notBeforeTs,
@@ -42,7 +42,9 @@ func (c *CertsController) List(ctx *gin.Context) {
 		})
 	}
 
-	ctx.JSON(http.StatusOK, result)
+	ctx.JSON(http.StatusOK, map[string]any{
+		"certs": certs,
+	})
 }
 
 func (c *CertsController) GetPrivateKey(ctx *gin.Context) {
@@ -115,15 +117,17 @@ func (c *CertsController) Generate(ctx *gin.Context) {
 		return
 	}
 
-	shouldCheckPropagation, scpOk := data["check_propagation"].(bool)
-	if !scpOk {
-		shouldCheckPropagation = false
-	}
+	// shouldCheckPropagation, scpOk := data["check_propagation"].(bool)
+	// if !scpOk {
+	// 	shouldCheckPropagation = true
+	// }
 
 	// Generate certs
-	err := c.CertsService.GenerateCerts(ts, email, domain, !shouldCheckPropagation)
+	err := c.CertsService.GenerateCerts(ts, email, domain, false)
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusInternalServerError)
+		ctx.JSON(http.StatusInternalServerError, map[string]any{
+			"message": err.Error(),
+		})
 		return
 	}
 }

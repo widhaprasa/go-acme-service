@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"log"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -73,6 +74,11 @@ func main() {
 	r.Use(gin.Recovery())
 
 	// Register handler
+	r.GET("/health", func(ctx *gin.Context) {
+		ctx.JSON(http.StatusOK, map[string]any{
+			"status": "ok",
+		})
+	})
 	r.Use(middleware.AuthorizeHeader())
 	{
 		r.GET("/certs/list", certsController.List)
