@@ -15,7 +15,8 @@ func (c *CertsRepository) CreateTable() (sql.Result, error) {
 
 	return c.Db.Exec(`CREATE TABLE IF NOT EXISTS certs(
 		id INTEGER PRIMARY KEY,
-		domain TEXT UNIQUE,
+		main TEXT UNIQUE,
+		sans TEXT,
 		email TEXT,
 		private_key BLOB,
 		certificate BLOB,
@@ -25,28 +26,29 @@ func (c *CertsRepository) CreateTable() (sql.Result, error) {
 	);`)
 }
 
-func (c *CertsRepository) GetCerts(domain string) (map[string]any, error) {
+func (c *CertsRepository) GetCerts(main string) (map[string]any, error) {
 
-	stmt, err := c.Db.Prepare("SELECT * FROM certs WHERE domain = ?")
+	stmt, err := c.Db.Prepare("SELECT * FROM certs WHERE sans LIKE ?")
 	if err != nil {
 		log.Println("Unable to query certs:", err)
 		return nil, err
 	}
 	defer stmt.Close()
 
-	row := stmt.QueryRow(domain)
+	row := stmt.QueryRow("%" + main + "%")
 	var id, notBeforeTs, notAfterTs, upsertedTs int
-	var email string
+	var sans, email string
 	var privateKey, certificate []byte
 
-	err = row.Scan(&id, &domain, &email, &privateKey, &certificate, &notBeforeTs, &notAfterTs, &upsertedTs)
+	err = row.Scan(&id, &main, &sans, &email, &privateKey, &certificate, &notBeforeTs, &notAfterTs, &upsertedTs)
 	if err != nil {
 		return nil, err
 	}
 
 	result := map[string]any{
 		"id":            id,
-		"domain":        domain,
+		"main":          main,
+		"sans":          sans,
 		"email":         email,
 		"private_key":   privateKey,
 		"certificate":   certificate,
@@ -70,10 +72,10 @@ func (c *CertsRepository) ListCerts() ([]any, error) {
 	result := []any{}
 	for rows.Next() {
 		var id, notBeforeTs, notAfterTs, upsertedTs int
-		var domain, email string
+		var main, sans, email string
 		var privateKey, certificate []byte
 
-		err = rows.Scan(&id, &domain, &email, &privateKey, &certificate, &notBeforeTs, &notAfterTs, &upsertedTs)
+		err = rows.Scan(&id, &main, &sans, &email, &privateKey, &certificate, &notBeforeTs, &notAfterTs, &upsertedTs)
 		if err != nil {
 			log.Println("Unable to scan certs row:", err)
 			return nil, err
@@ -81,7 +83,8 @@ func (c *CertsRepository) ListCerts() ([]any, error) {
 
 		item := map[string]any{
 			"id":            id,
-			"domain":        domain,
+			"main":          main,
+			"sans":          sans,
 			"email":         email,
 			"private_key":   privateKey,
 			"certificate":   certificate,
@@ -95,19 +98,19 @@ func (c *CertsRepository) ListCerts() ([]any, error) {
 	return result, nil
 }
 
-func (c *CertsRepository) UpsertCerts(domain string, email string, privateKey, certificate []byte, notBeforeTs int64, notAfterTs int64, upsertedTs int64) (sql.Result, error) {
+func (c *CertsRepository) UpsertCerts(main string, sans string, email string, privateKey, certificate []byte, notBeforeTs int64, notAfterTs int64, upsertedTs int64) (sql.Result, error) {
 	return c.Db.Exec(`
-		INSERT INTO certs(domain, email, private_key, certificate, not_before_ts, not_after_ts, upserted_ts)
-		VALUES(?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(domain)
-		DO UPDATE SET email = excluded.email, private_key = excluded.private_key, certificate = excluded.certificate, not_before_ts = excluded.not_before_ts,
+		INSERT INTO certs(main, sans, email, private_key, certificate, not_before_ts, not_after_ts, upserted_ts)
+		VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(main)
+		DO UPDATE SET sans = excluded.sans, email = excluded.email, private_key = excluded.private_key, certificate = excluded.certificate, not_before_ts = excluded.not_before_ts,
 			not_after_ts = excluded.not_after_ts, upserted_ts = excluded.upserted_ts;`,
-		domain, email, privateKey, certificate, notBeforeTs, notAfterTs, upsertedTs)
+		main, sans, email, privateKey, certificate, notBeforeTs, notAfterTs, upsertedTs)
 }
 
-func (c *CertsRepository) DeleteCerts(domain string) (sql.Result, error) {
+func (c *CertsRepository) DeleteCerts(main string) (sql.Result, error) {
 
 	return c.Db.Exec(`
-		DELETE FROM certs WHERE domain = ?`,
-		domain)
+		DELETE FROM certs WHERE main = ?`,
+		main)
 }

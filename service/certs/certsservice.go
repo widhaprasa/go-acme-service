@@ -3,7 +3,9 @@ package certs
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/go-acme/lego/v4/certificate"
@@ -18,7 +20,14 @@ type CertsService struct {
 	ClientService   *client.ClientService
 }
 
-func (c *CertsService) GenerateCerts(ts int64, email string, domain string, disablePropagationCheck bool) error {
+func (c *CertsService) GenerateCerts(ts int64, email string, domains []string, disablePropagationCheck bool) error {
+
+	domains, err := c.validateDomains(domains)
+	if err != nil {
+		log.Println("No domain was given")
+		return err
+	}
+	main := domains[0]
 
 	client, err := c.ClientService.GetClient(ts, email)
 	if err != nil {
@@ -48,22 +57,22 @@ func (c *CertsService) GenerateCerts(ts int64, email string, domain string, disa
 	}
 
 	request := certificate.ObtainRequest{
-		Domains:        []string{domain},
+		Domains:        domains,
 		Bundle:         true,
 		PreferredChain: "ISRG Root X1", // Default preferred chain
 	}
 
 	cert, err := client.Certificate.Obtain(request)
 	if err != nil {
-		log.Println("Error generating certificate for domain", domain, ":", err)
+		log.Println("Error generating certificate for domain", main, ":", err)
 		return err
 	}
 	if cert == nil {
-		log.Println("Error generating certificate for domain", domain, ":", err)
+		log.Println("Error generating certificate for domain", main, ":", err)
 		return err
 	}
 	if len(cert.Certificate) == 0 || len(cert.PrivateKey) == 0 {
-		log.Printf("Certificate for domain %s is empty", domain)
+		log.Printf("Certificate for domain %s is empty", main)
 		return err
 	}
 
@@ -71,14 +80,14 @@ func (c *CertsService) GenerateCerts(ts int64, email string, domain string, disa
 	certificate_ := cert.Certificate
 
 	res := certificate.Resource{
-		Domain:      domain,
+		Domain:      main,
 		PrivateKey:  privateKey,
 		Certificate: certificate_,
 	}
 	crt, err := c.getX509Certificate(res)
 
 	// Insert certs to database
-	_, err = c.CertsRepository.UpsertCerts(domain, email, privateKey, certificate_, crt.NotBefore.UnixMilli(), crt.NotAfter.UnixMilli(), ts)
+	_, err = c.CertsRepository.UpsertCerts(main, strings.Join(domains, ","), email, privateKey, certificate_, crt.NotBefore.UnixMilli(), crt.NotAfter.UnixMilli(), ts)
 	if err != nil {
 		log.Println("Failed to insert certs", email, ":", err)
 		return err
@@ -116,18 +125,20 @@ func (c *CertsService) renewCerts(ts int64) error {
 
 	list, err := c.CertsRepository.ListCerts()
 	if err != nil {
+		log.Println("No domain was given")
 		return err
 	}
 
 	for _, v := range list {
 
 		certsMap := v.(map[string]any)
-		domain := certsMap["domain"].(string)
+		main := certsMap["main"].(string)
+		sans := certsMap["sans"].(string)
 		privateKey := certsMap["private_key"].([]byte)
 		certificate_ := certsMap["certificate"].([]byte)
 
 		res := certificate.Resource{
-			Domain:      domain,
+			Domain:      main,
 			PrivateKey:  privateKey,
 			Certificate: certificate_,
 		}
@@ -136,7 +147,7 @@ func (c *CertsService) renewCerts(ts int64) error {
 		if err != nil || crt == nil || crt.NotAfter.Before(time.Now().Add(renewPeriod)) {
 
 			// Renew certs
-			log.Printf("Renew certs:", domain)
+			log.Printf("Renew certs:", main)
 
 			email := certsMap["email"].(string)
 			client, err := c.ClientService.GetClient(ts, email)
@@ -151,17 +162,17 @@ func (c *CertsService) renewCerts(ts int64) error {
 
 			renewedCert, err := client.Certificate.RenewWithOptions(res, opts)
 			if err != nil {
-				log.Printf("Error renewing certificate for domain", domain, ":", err)
+				log.Printf("Error renewing certificate for domain", main, ":", err)
 				return err
 			}
 
 			if len(renewedCert.Certificate) == 0 || len(renewedCert.PrivateKey) == 0 {
-				log.Printf("Certificate for domain %s is empty", domain)
+				log.Printf("Certificate for domain %s is empty", main)
 				return err
 			}
 
 			// Update new key to database
-			_, err = c.CertsRepository.UpsertCerts(domain, email, renewedCert.PrivateKey, renewedCert.Certificate,
+			_, err = c.CertsRepository.UpsertCerts(main, sans, email, renewedCert.PrivateKey, renewedCert.Certificate,
 				crt.NotBefore.UnixMilli(), crt.NotAfter.UnixMilli(), ts)
 			if err != nil {
 				log.Println("Failed to update certs", email, ":", err)
@@ -190,4 +201,22 @@ func (c *CertsService) getX509Certificate(res certificate.Resource) (*x509.Certi
 	}
 
 	return crt, err
+}
+
+func (c *CertsService) validateDomains(domains []string) ([]string, error) {
+
+	if len(domains) == 0 {
+		return nil, errors.New("No domain was given")
+	}
+
+	map_ := make(map[string]struct{})
+
+	var result []string
+	for _, str := range domains {
+		if _, exists := map_[str]; !exists {
+			map_[str] = struct{}{}
+			result = append(result, str)
+		}
+	}
+	return result, nil
 }

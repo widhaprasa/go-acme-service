@@ -27,14 +27,16 @@ func (c *CertsController) List(ctx *gin.Context) {
 	for _, v := range list {
 
 		certsMap := v.(map[string]any)
-		domain := certsMap["domain"].(string)
+		main := certsMap["main"].(string)
+		sans := certsMap["sans"].(string)
 		email := certsMap["email"].(string)
 		notBeforeTs := certsMap["not_before_ts"].(int)
 		notAfterTs := certsMap["not_after_ts"].(int)
 		upsertedTs := certsMap["upserted_ts"].(int)
 
 		certs = append(certs, map[string]any{
-			"domain":        domain,
+			"main":          main,
+			"sans":          sans,
 			"email":         email,
 			"not_before_ts": notBeforeTs,
 			"not_after_ts":  notAfterTs,
@@ -56,14 +58,14 @@ func (c *CertsController) GetPrivateKey(ctx *gin.Context) {
 		return
 	}
 
-	domain, domainOk := data["domain"].(string)
-	if !domainOk || domain == "" {
+	main, mainOk := data["main"].(string)
+	if !mainOk || main == "" {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 
 	// Retrieve from Db
-	certs, err := c.CertsRepository.GetCerts(domain)
+	certs, err := c.CertsRepository.GetCerts(main)
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
@@ -81,14 +83,14 @@ func (c *CertsController) GetCertificate(ctx *gin.Context) {
 		return
 	}
 
-	domain, domainOk := data["domain"].(string)
-	if !domainOk || domain == "" {
+	main, mainOk := data["main"].(string)
+	if !mainOk || main == "" {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 
 	// Retrieve from Db
-	certs, err := c.CertsRepository.GetCerts(domain)
+	certs, err := c.CertsRepository.GetCerts(main)
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
@@ -109,12 +111,19 @@ func (c *CertsController) Generate(ctx *gin.Context) {
 		return
 	}
 
-	domain, domainOk := data["domain"].(string)
+	domainsAny, domainsOk := data["domains"].([]any)
 	email, emailOk := data["email"].(string)
 
-	if !domainOk || !emailOk || domain == "" || email == "" {
+	if !domainsOk || !emailOk || email == "" {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
+	}
+
+	var domains []string
+	for _, v := range domainsAny {
+		if str, ok := v.(string); ok {
+			domains = append(domains, str)
+		}
 	}
 
 	// shouldCheckPropagation, scpOk := data["check_propagation"].(bool)
@@ -123,7 +132,7 @@ func (c *CertsController) Generate(ctx *gin.Context) {
 	// }
 
 	// Generate certs
-	err := c.CertsService.GenerateCerts(ts, email, domain, false)
+	err := c.CertsService.GenerateCerts(ts, email, domains, false)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, map[string]any{
 			"message": err.Error(),
