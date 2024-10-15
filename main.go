@@ -31,21 +31,17 @@ func main() {
 	}
 	defer db.Close()
 
-	certsRepository := &certsrepository.CertsRepository{
+	certsRepository := certsrepository.CertsRepository{
 		Db: db,
 	}
-	clientrepository := &clientrepository.ClientRepository{
+	clientrepository := clientrepository.ClientRepository{
 		Db: db,
 	}
 
-	clientService := &clientservice.ClientService{
+	clientService := clientservice.ClientService{
 		Clientrepository: clientrepository,
 	}
-
-	certsService := &certsservice.CertsService{
-		CertsRepository: certsRepository,
-		ClientService:   clientService,
-	}
+	certsService := certsservice.NewCertsService(certsRepository, clientService)
 
 	certsController := &certscontroller.CertsController{
 		CertsRepository: certsRepository,
@@ -66,7 +62,10 @@ func main() {
 	ts := time.Now().UnixMilli()
 
 	// Initiate schedule for renew certificates
-	certsService.InitRenewTicker(ts)
+	certsService.InitRenewSchedule(ts)
+
+	// Initiate schedule for job
+	certsService.InitJobSchedule()
 
 	r := gin.New()
 	r.Use(gin.Logger())

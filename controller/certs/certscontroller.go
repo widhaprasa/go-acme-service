@@ -11,8 +11,8 @@ import (
 )
 
 type CertsController struct {
-	CertsRepository *certsrepository.CertsRepository
-	CertsService    *certsservice.CertsService
+	CertsRepository certsrepository.CertsRepository
+	CertsService    certsservice.CertsService
 }
 
 func (c *CertsController) List(ctx *gin.Context) {
@@ -111,19 +111,29 @@ func (c *CertsController) Generate(ctx *gin.Context) {
 		return
 	}
 
-	domainsAny, domainsOk := data["domains"].([]any)
-	email, emailOk := data["email"].(string)
+	// Handle single domain and SANS
+	var domains []string
+	domain, domainOk := data["domain"].(string)
+	if domainOk {
+		domains = append(domains, domain)
+	} else {
+		domainsAny, domainsOk := data["domains"].([]any)
+		if !domainsOk {
+			ctx.AbortWithStatus(http.StatusNotFound)
+			return
+		}
 
-	if !domainsOk || !emailOk || email == "" {
-		ctx.AbortWithStatus(http.StatusNotFound)
-		return
+		for _, v := range domainsAny {
+			if str, ok := v.(string); ok {
+				domains = append(domains, str)
+			}
+		}
 	}
 
-	var domains []string
-	for _, v := range domainsAny {
-		if str, ok := v.(string); ok {
-			domains = append(domains, str)
-		}
+	email, emailOk := data["email"].(string)
+	if !emailOk || email == "" {
+		ctx.AbortWithStatus(http.StatusNotFound)
+		return
 	}
 
 	// shouldCheckPropagation, scpOk := data["check_propagation"].(bool)

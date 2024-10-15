@@ -16,8 +16,21 @@ import (
 )
 
 type CertsService struct {
-	CertsRepository *certs.CertsRepository
-	ClientService   *client.ClientService
+	certsRepository certs.CertsRepository
+	clientService   client.ClientService
+	jobs            chan map[string]any
+}
+
+func NewCertsService(certsrepository certs.CertsRepository, clientservice client.ClientService) CertsService {
+
+	jobsNumber := 5 // Max job queues
+	jobs := make(chan map[string]any, jobsNumber)
+
+	return CertsService{
+		certsRepository: certsrepository,
+		clientService:   clientservice,
+		jobs:            jobs,
+	}
 }
 
 func (c *CertsService) GenerateCerts(ts int64, email string, domains []string, disablePropagationCheck bool) error {
@@ -27,9 +40,22 @@ func (c *CertsService) GenerateCerts(ts int64, email string, domains []string, d
 		log.Println("No domain was given")
 		return err
 	}
+
+	c.AddJob(map[string]any{
+		"ts":                        ts,
+		"email":                     email,
+		"domains":                   domains,
+		"disable_propagation_check": disablePropagationCheck,
+	})
+
+	return nil
+}
+
+func (c *CertsService) generateCertsJob(ts int64, email string, domains []string, disablePropagationCheck bool) error {
+
 	main := domains[0]
 
-	client, err := c.ClientService.GetClient(ts, email)
+	client, err := c.clientService.GetClient(ts, email)
 	if err != nil {
 		log.Println("Unable to get client:", email)
 		return err
@@ -87,43 +113,21 @@ func (c *CertsService) GenerateCerts(ts int64, email string, domains []string, d
 	crt, err := c.getX509Certificate(res)
 
 	// Insert certs to database
-	_, err = c.CertsRepository.UpsertCerts(main, strings.Join(domains, ","), email, privateKey, certificate_, crt.NotBefore.UnixMilli(), crt.NotAfter.UnixMilli(), ts)
+	_, err = c.certsRepository.UpsertCerts(main, strings.Join(domains, ","), email, privateKey, certificate_, crt.NotBefore.UnixMilli(), crt.NotAfter.UnixMilli(), ts)
 	if err != nil {
-		log.Println("Failed to insert certs", email, ":", err)
+		log.Println("Failed to insert certs", main, ":", err)
 		return err
 	}
 
+	log.Println("Success generating certificate for domain", main)
 	return nil
 }
 
-func (c *CertsService) InitRenewTicker(ts int64) {
-
-	renewInterval := 24 * time.Hour // Default interval, check renew certificates daily
-
-	// Check renew first
-	c.renewCerts(ts)
-
-	ticker := time.NewTicker(renewInterval)
-	done := make(chan bool)
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				ts := time.Now().UnixMilli()
-				c.renewCerts(ts)
-			case <-done:
-				ticker.Stop()
-				return
-			}
-		}
-	}()
-}
-
-func (c *CertsService) renewCerts(ts int64) error {
+func (c *CertsService) RenewCerts(ts int64) error {
 
 	renewPeriod := 30 * 24 * time.Hour // Default period, renew certificates if they are valid for less than a month
 
-	list, err := c.CertsRepository.ListCerts()
+	list, err := c.certsRepository.ListCerts()
 	if err != nil {
 		log.Println("No domain was given")
 		return err
@@ -150,7 +154,7 @@ func (c *CertsService) renewCerts(ts int64) error {
 			log.Printf("Renew certs:", main)
 
 			email := certsMap["email"].(string)
-			client, err := c.ClientService.GetClient(ts, email)
+			client, err := c.clientService.GetClient(ts, email)
 			if err != nil {
 				return err
 			}
@@ -172,7 +176,7 @@ func (c *CertsService) renewCerts(ts int64) error {
 			}
 
 			// Update new key to database
-			_, err = c.CertsRepository.UpsertCerts(main, sans, email, renewedCert.PrivateKey, renewedCert.Certificate,
+			_, err = c.certsRepository.UpsertCerts(main, sans, email, renewedCert.PrivateKey, renewedCert.Certificate,
 				crt.NotBefore.UnixMilli(), crt.NotAfter.UnixMilli(), ts)
 			if err != nil {
 				log.Println("Failed to update certs", email, ":", err)

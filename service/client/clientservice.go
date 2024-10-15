@@ -12,7 +12,7 @@ import (
 )
 
 type ClientService struct {
-	Clientrepository *client.ClientRepository
+	Clientrepository client.ClientRepository
 }
 
 func (c *ClientService) GetClient(ts int64, email string) (*lego.Client, error) {
