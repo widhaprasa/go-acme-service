@@ -14,6 +14,7 @@ import (
 
 	certsrepository "github.com/widhaprasa/go-acme-service/repository/certs"
 	clientrepository "github.com/widhaprasa/go-acme-service/repository/client"
+	webhookrepository "github.com/widhaprasa/go-acme-service/repository/webhook"
 
 	certsservice "github.com/widhaprasa/go-acme-service/service/certs"
 	clientservice "github.com/widhaprasa/go-acme-service/service/client"
@@ -34,18 +35,22 @@ func main() {
 	certsRepository := certsrepository.CertsRepository{
 		Db: db,
 	}
-	clientrepository := clientrepository.ClientRepository{
+	clientRepository := clientrepository.ClientRepository{
+		Db: db,
+	}
+	webhookRepository := webhookrepository.WebhookRepository{
 		Db: db,
 	}
 
 	clientService := clientservice.ClientService{
-		Clientrepository: clientrepository,
+		Clientrepository: clientRepository,
 	}
-	certsService := certsservice.NewCertsService(certsRepository, clientService)
+	certsService := certsservice.NewCertsService(certsRepository, clientService, webhookRepository)
 
 	certsController := &certscontroller.CertsController{
-		CertsRepository: certsRepository,
-		CertsService:    certsService,
+		CertsRepository:   certsRepository,
+		CertsService:      certsService,
+		WebhookRepository: webhookRepository,
 	}
 
 	// Create table
@@ -53,7 +58,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	_, err = clientrepository.CreateTable()
+	_, err = clientRepository.CreateTable()
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = webhookRepository.CreateTable()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -84,6 +93,8 @@ func main() {
 		r.POST("/certs/privatekey", certsController.GetPrivateKey)
 		r.POST("/certs/certificate", certsController.GetCertificate)
 		r.POST("/certs/generate", certsController.Generate)
+		r.POST("/certs/webhook/update", certsController.UpdateWebhook)
+		r.POST("/certs/webhook/delete", certsController.DeleteWebhook)
 	}
 
 	port := env.SERVICE_PORT

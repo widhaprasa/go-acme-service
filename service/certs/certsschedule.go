@@ -34,8 +34,10 @@ func (c *CertsService) InitJobSchedule() {
 			email := payload["email"].(string)
 			domains := payload["domains"].([]string)
 			disablePropagationCheck := payload["disable_propagation_check"].(bool)
+			webhookUrl := payload["webhook_url"].(string)
+			webhookHeaderMap := payload["webhook_headers"].(map[string]any)
 
-			err := c.generateCertsJob(ts, email, domains, disablePropagationCheck)
+			err := c.generateCertsJob(ts, email, domains, disablePropagationCheck, webhookUrl, webhookHeaderMap)
 			if err != nil {
 
 			}
