@@ -42,6 +42,7 @@ func (c *CertsRepository) GetCerts(main string) (map[string]any, error) {
 
 	err = row.Scan(&id, &main, &sans, &email, &privateKey, &certificate, &notBeforeTs, &notAfterTs, &upsertedTs)
 	if err != nil {
+		log.Println("Unable to scan certs row:", err)
 		return nil, err
 	}
 

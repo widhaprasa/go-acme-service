@@ -7,17 +7,25 @@ import (
 	"github.com/gin-gonic/gin"
 
 	certsrepository "github.com/widhaprasa/go-acme-service/repository/certs"
+	webhookrepository "github.com/widhaprasa/go-acme-service/repository/webhook"
 	certsservice "github.com/widhaprasa/go-acme-service/service/certs"
 )
 
 type CertsController struct {
-	CertsRepository certsrepository.CertsRepository
-	CertsService    certsservice.CertsService
+	CertsRepository   certsrepository.CertsRepository
+	CertsService      certsservice.CertsService
+	WebhookRepository webhookrepository.WebhookRepository
 }
 
 func (c *CertsController) List(ctx *gin.Context) {
 
 	list, err := c.CertsRepository.ListCerts()
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	webhookMap, err := c.WebhookRepository.MapWebhook()
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
@@ -34,14 +42,22 @@ func (c *CertsController) List(ctx *gin.Context) {
 		notAfterTs := certsMap["not_after_ts"].(int)
 		upsertedTs := certsMap["upserted_ts"].(int)
 
-		certs = append(certs, map[string]any{
+		certItem := map[string]any{
 			"main":          main,
 			"sans":          sans,
 			"email":         email,
 			"not_before_ts": notBeforeTs,
 			"not_after_ts":  notAfterTs,
 			"upserted_ts":   upsertedTs,
-		})
+		}
+
+		webhookItem, webhookOk := webhookMap[main].(map[string]any)
+		if webhookOk {
+			certItem["webhook_url"] = webhookItem["url"].(string)
+			certItem["webhook_headers"] = webhookItem["headers"].(map[string]any)
+		}
+
+		certs = append(certs, certItem)
 	}
 
 	ctx.JSON(http.StatusOK, map[string]any{
@@ -136,17 +152,110 @@ func (c *CertsController) Generate(ctx *gin.Context) {
 		return
 	}
 
+	webhookUrl, webhookUrlOk := data["webhook_url"].(string)
+	if !webhookUrlOk {
+		webhookUrl = ""
+	}
+
+	webhookHeaderMap, webhookHeaderMapOk := data["webhook_headers"].(map[string]any)
+	if !webhookHeaderMapOk {
+		webhookHeaderMap = map[string]any{}
+	}
+
 	// shouldCheckPropagation, scpOk := data["check_propagation"].(bool)
 	// if !scpOk {
 	// 	shouldCheckPropagation = true
 	// }
 
 	// Generate certs
-	err := c.CertsService.GenerateCerts(ts, email, domains, false)
+	err := c.CertsService.GenerateCerts(ts, email, domains, false, webhookUrl, webhookHeaderMap)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, map[string]any{
 			"message": err.Error(),
 		})
 		return
 	}
+}
+
+func (c *CertsController) UpdateWebhook(ctx *gin.Context) {
+
+	// Request body
+	var data map[string]any
+	if err := ctx.ShouldBindJSON(&data); err != nil {
+		ctx.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	domain, domainOk := data["domain"].(string)
+	if !domainOk || domain == "" {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	// Retrieve from Db
+	certs, err := c.CertsRepository.GetCerts(domain)
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	main := certs["main"].(string)
+
+	url, urlOk := data["url"].(string)
+	if !urlOk || url == "" {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	headerMap, headerMapOk := data["headers"].(map[string]any)
+	if !headerMapOk {
+		headerMap = map[string]any{}
+	}
+
+	_, err = c.WebhookRepository.UpsertWebhook(main, url, headerMap)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, map[string]any{
+			"message": err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, map[string]any{
+		"main": main,
+	})
+}
+
+func (c *CertsController) DeleteWebhook(ctx *gin.Context) {
+
+	// Request body
+	var data map[string]any
+	if err := ctx.ShouldBindJSON(&data); err != nil {
+		ctx.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	domain, domainOk := data["domain"].(string)
+	if !domainOk || domain == "" {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	// Retrieve from Db
+	certs, err := c.CertsRepository.GetCerts(domain)
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	main := certs["main"].(string)
+
+	_, err = c.WebhookRepository.DeleteWebhook(main)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, map[string]any{
+			"message": err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, map[string]any{
+		"main": main,
+	})
 }

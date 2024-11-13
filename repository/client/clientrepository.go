@@ -38,6 +38,7 @@ func (c *ClientRepository) GetClient(email string) (map[string]any, error) {
 
 	err = row.Scan(&id, &email, &uri, &privateKey, &upsertedTs)
 	if err != nil {
+		log.Println("Unable to scan client row:", err)
 		return nil, err
 	}
 
@@ -61,7 +62,7 @@ func (c *ClientRepository) UpsertClient(email string, uri string, privateKey []b
 		email, uri, privateKey, upsertedTs)
 }
 
-func (c *ClientRepository) DeleteCerts(email string) (sql.Result, error) {
+func (c *ClientRepository) DeleteClient(email string) (sql.Result, error) {
 
 	return c.Db.Exec(`
 		DELETE FROM client WHERE email = ?`,
