@@ -33,6 +33,7 @@ The service uses an SQLite database located at `db/acme.db` to store certificate
 | Description                         | Method | Endpoint                |
 |-------------------------------------|--------|-------------------------|
 | Certs List                           | GET    | `/certs/list`           |
+| Certs Read                           | POST   | `/certs/read`           |
 | Certs Private Key                    | POST   | `/certs/privatekey`     |
 | Certs Certificates                   | POST   | `/certs/certificate`    |
 | Certs Generate                       | POST   | `/certs/generate`       |
