@@ -90,6 +90,7 @@ func main() {
 	r.Use(middleware.AuthorizeHeader())
 	{
 		r.GET("/certs/list", certsController.List)
+		r.POST("/certs/read", certsController.Read)
 		r.POST("/certs/privatekey", certsController.GetPrivateKey)
 		r.POST("/certs/certificate", certsController.GetCertificate)
 		r.POST("/certs/generate", certsController.Generate)

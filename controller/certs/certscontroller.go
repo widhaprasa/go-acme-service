@@ -65,6 +65,53 @@ func (c *CertsController) List(ctx *gin.Context) {
 	})
 }
 
+func (c *CertsController) Read(ctx *gin.Context) {
+
+	// Request body
+	var data map[string]any
+	if err := ctx.ShouldBindJSON(&data); err != nil {
+		ctx.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	domain, domainOk := data["domain"].(string)
+	if !domainOk || domain == "" {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	// Retrieve from Db
+	certs, err := c.CertsRepository.GetCerts(domain)
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	main := certs["main"].(string)
+	sans := certs["sans"].(string)
+	email := certs["email"].(string)
+	notBeforeTs := certs["not_before_ts"].(int)
+	notAfterTs := certs["not_after_ts"].(int)
+	upsertedTs := certs["upserted_ts"].(int)
+
+	certItem := map[string]any{
+		"main":          main,
+		"sans":          sans,
+		"email":         email,
+		"not_before_ts": notBeforeTs,
+		"not_after_ts":  notAfterTs,
+		"upserted_ts":   upsertedTs,
+	}
+
+	webhook, err := c.WebhookRepository.GetWebhook(main)
+	if err == nil {
+		certItem["webhook_url"] = webhook["url"].(string)
+		certItem["webhook_headers"] = webhook["headers"].(map[string]any)
+	}
+
+	ctx.JSON(http.StatusOK, certItem)
+}
+
 func (c *CertsController) GetPrivateKey(ctx *gin.Context) {
 
 	// Request body
