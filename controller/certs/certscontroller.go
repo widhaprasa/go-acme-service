@@ -121,14 +121,14 @@ func (c *CertsController) GetPrivateKey(ctx *gin.Context) {
 		return
 	}
 
-	main, mainOk := data["main"].(string)
-	if !mainOk || main == "" {
-		ctx.AbortWithStatus(http.StatusNotFound)
+	domain, domainOk := data["domain"].(string)
+	if !domainOk || domain == "" {
+		ctx.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
 
 	// Retrieve from Db
-	certs, err := c.CertsRepository.GetCerts(main)
+	certs, err := c.CertsRepository.GetCerts(domain)
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
@@ -146,14 +146,14 @@ func (c *CertsController) GetCertificate(ctx *gin.Context) {
 		return
 	}
 
-	main, mainOk := data["main"].(string)
-	if !mainOk || main == "" {
-		ctx.AbortWithStatus(http.StatusNotFound)
+	domain, domainOk := data["domain"].(string)
+	if !domainOk || domain == "" {
+		ctx.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
 
 	// Retrieve from Db
-	certs, err := c.CertsRepository.GetCerts(main)
+	certs, err := c.CertsRepository.GetCerts(domain)
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
