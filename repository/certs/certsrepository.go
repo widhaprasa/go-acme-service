@@ -2,6 +2,7 @@ package certs
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -38,6 +39,51 @@ func (c *CertsRepository) GetCerts(main string) (map[string]any, error) {
 	row := stmt.QueryRow("%" + main + "%")
 	var id, notBeforeTs, notAfterTs, upsertedTs int
 	var sans, email string
+	var privateKey, certificate []byte
+
+	err = row.Scan(&id, &main, &sans, &email, &privateKey, &certificate, &notBeforeTs, &notAfterTs, &upsertedTs)
+	if err != nil {
+		log.Println("Unable to scan certs row:", err)
+		return nil, err
+	}
+
+	result := map[string]any{
+		"id":            id,
+		"main":          main,
+		"sans":          sans,
+		"email":         email,
+		"private_key":   privateKey,
+		"certificate":   certificate,
+		"not_before_ts": notBeforeTs,
+		"not_after_ts":  notAfterTs,
+		"upserted_ts":   upsertedTs,
+	}
+
+	return result, nil
+}
+
+func (c *CertsRepository) GetCertsByMain(domains[] string) (map[string]any, error) {
+
+	// Create prepared statements
+	count := len(domains)
+
+	anys := make([]any, count)
+	preparedStatements := make([]string, count)
+	for i := 0; i < count; i++ {
+		anys[i] = domains[i]
+		preparedStatements[i] = "?"
+	}
+
+	stmt, err := c.Db.Prepare("SELECT * FROM certs WHERE main IN " + fmt.Sprintf("%s", preparedStatements))
+	if err != nil {
+		log.Println("Unable to query certs:", err)
+		return nil, err
+	}
+	defer stmt.Close()
+
+	row := stmt.QueryRow(anys...)
+	var id, notBeforeTs, notAfterTs, upsertedTs int
+	var main, sans, email string
 	var privateKey, certificate []byte
 
 	err = row.Scan(&id, &main, &sans, &email, &privateKey, &certificate, &notBeforeTs, &notAfterTs, &upsertedTs)
