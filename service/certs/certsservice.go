@@ -50,7 +50,7 @@ func (c *CertsService) GenerateCerts(ts int64, email string, domains []string,
 		return err
 	}
 
-	c.AddJob(map[string]any{
+	jobResult := c.AddJob(map[string]any{
 		"ts":                        ts,
 		"email":                     email,
 		"domains":                   domains,
@@ -58,6 +58,10 @@ func (c *CertsService) GenerateCerts(ts int64, email string, domains []string,
 		"webhook_url":               webhookUrl,
 		"webhook_headers":           webhookHeaderMap,
 	})
+
+	if !jobResult {
+		return errors.New("Generate certs busy")
+	}
 
 	return nil
 }

@@ -222,6 +222,49 @@ func (c *CertsController) Generate(ctx *gin.Context) {
 		})
 		return
 	}
+
+	ctx.JSON(http.StatusOK, map[string]any{
+		"main" : domains[0],
+	})
+}
+
+func (c *CertsController) Delete(ctx *gin.Context) {
+
+	// Server time
+	// ts := time.Now().UnixMilli()
+
+	// Request body
+	var data map[string]any
+	if err := ctx.ShouldBindJSON(&data); err != nil {
+		ctx.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	domain, domainOk := data["domain"].(string)
+	if !domainOk || domain == "" {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	// Retrieve from Db
+	certs, err := c.CertsRepository.GetCerts(domain)
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	main := certs["main"].(string)
+
+	// Delete from Db
+	_, err = c.CertsRepository.DeleteCerts(main)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, map[string]any{
+			"message": err.Error(),
+		})
+	}
+
+	ctx.JSON(http.StatusOK, map[string]any{
+		"main": main,
+	})
 }
 
 func (c *CertsController) UpdateWebhook(ctx *gin.Context) {

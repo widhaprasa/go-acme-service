@@ -37,6 +37,7 @@ The service uses an SQLite database located at `db/acme.db` to store certificate
 | Certs Private Key                    | POST   | `/certs/privatekey`     |
 | Certs Certificates                   | POST   | `/certs/certificate`    |
 | Certs Generate                       | POST   | `/certs/generate`       |
+| Certs Delete                         | POST   | `/certs/delete`         |
 
 For more details on how to configure the Cloudflare provider, please refer to the official documentation:  
 [Cloudflare DNS Challenge Setup](https://go-acme.github.io/lego/dns/cloudflare/)

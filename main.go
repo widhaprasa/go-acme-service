@@ -94,6 +94,7 @@ func main() {
 		r.POST("/certs/privatekey", certsController.GetPrivateKey)
 		r.POST("/certs/certificate", certsController.GetCertificate)
 		r.POST("/certs/generate", certsController.Generate)
+		r.POST("/certs/delete", certsController.Delete)
 		r.POST("/certs/webhook/update", certsController.UpdateWebhook)
 		r.POST("/certs/webhook/delete", certsController.DeleteWebhook)
 	}
