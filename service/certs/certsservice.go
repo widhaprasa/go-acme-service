@@ -42,30 +42,42 @@ func NewCertsService(certsrepository certs.CertsRepository, clientservice client
 }
 
 func (c *CertsService) GenerateCerts(ts int64, email string, domains []string,
-	disablePropagationCheck bool, webhookUrl string, webhookHeaderMap map[string]any) error {
+	disablePropagationCheck bool, webhookUrl string, webhookHeaderMap map[string]any) (string, error) {
 
 	domains, err := c.validateDomains(domains)
 	if err != nil {
 		log.Println("No domain was given")
-		return err
+		return "", err
 	}
+	var main string
 
-	c.AddJob(map[string]any{
+	certs, err := c.certsRepository.GetCertsByMain(domains)
+	if err != nil {
+		main = domains[0]
+	} else {
+		main = certs["main"].(string)
+	}
+	log.Println("Generate certs:", main)
+
+	result := c.AddJob(map[string]any{
 		"ts":                        ts,
 		"email":                     email,
+		"main":                      main,
 		"domains":                   domains,
 		"disable_propagation_check": disablePropagationCheck,
 		"webhook_url":               webhookUrl,
 		"webhook_headers":           webhookHeaderMap,
 	})
 
-	return nil
+	if !result {
+		return "", errors.New("Busy. Please try again later")
+	}
+
+	return main, nil
 }
 
-func (c *CertsService) generateCertsJob(ts int64, email string, domains []string,
+func (c *CertsService) generateCertsJob(ts int64, email string, main string, domains []string,
 	disablePropagationCheck bool, webhookUrl string, webhookHeaderMap map[string]any) error {
-
-	main := domains[0]
 
 	client, err := c.clientService.GetClient(ts, email)
 	if err != nil {
