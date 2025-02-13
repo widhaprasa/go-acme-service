@@ -215,7 +215,7 @@ func (c *CertsController) Generate(ctx *gin.Context) {
 	// }
 
 	// Generate certs
-	main, err := c.CertsService.GenerateCerts(ts, email, domains, false, webhookUrl, webhookHeaderMap)
+	main, err := c.CertsService.GenerateCerts(ts, email, domains, webhookUrl, webhookHeaderMap)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, map[string]any{
 			"message": err.Error(),
