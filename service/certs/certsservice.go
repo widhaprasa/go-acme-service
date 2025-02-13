@@ -14,8 +14,6 @@ import (
 	"time"
 
 	"github.com/go-acme/lego/v4/certificate"
-	"github.com/go-acme/lego/v4/challenge/dns01"
-	"github.com/go-acme/lego/v4/providers/dns/cloudflare"
 	"github.com/widhaprasa/go-acme-service/repository/certs"
 	"github.com/widhaprasa/go-acme-service/repository/webhook"
 	"github.com/widhaprasa/go-acme-service/service/client"
@@ -41,8 +39,7 @@ func NewCertsService(certsrepository certs.CertsRepository, clientservice client
 	}
 }
 
-func (c *CertsService) GenerateCerts(ts int64, email string, domains []string,
-	disablePropagationCheck bool, webhookUrl string, webhookHeaderMap map[string]any) (string, error) {
+func (c *CertsService) GenerateCerts(ts int64, email string, domains []string, webhookUrl string, webhookHeaderMap map[string]any) (string, error) {
 
 	domains, err := c.validateDomains(domains)
 	if err != nil {
@@ -60,13 +57,12 @@ func (c *CertsService) GenerateCerts(ts int64, email string, domains []string,
 	log.Println("Generate certs:", main)
 
 	result := c.AddJob(map[string]any{
-		"ts":                        ts,
-		"email":                     email,
-		"main":                      main,
-		"domains":                   domains,
-		"disable_propagation_check": disablePropagationCheck,
-		"webhook_url":               webhookUrl,
-		"webhook_headers":           webhookHeaderMap,
+		"ts":              ts,
+		"email":           email,
+		"main":            main,
+		"domains":         domains,
+		"webhook_url":     webhookUrl,
+		"webhook_headers": webhookHeaderMap,
 	})
 
 	if !result {
@@ -76,33 +72,11 @@ func (c *CertsService) GenerateCerts(ts int64, email string, domains []string,
 	return main, nil
 }
 
-func (c *CertsService) generateCertsJob(ts int64, email string, main string, domains []string,
-	disablePropagationCheck bool, webhookUrl string, webhookHeaderMap map[string]any) error {
+func (c *CertsService) generateCertsJob(ts int64, email string, main string, domains []string, webhookUrl string, webhookHeaderMap map[string]any) error {
 
 	client, err := c.clientService.GetClient(ts, email)
 	if err != nil {
 		log.Println("Unable to get client:", email)
-		return err
-	}
-
-	// Using cloudflare DNS provider
-	dnsProvider, err := cloudflare.NewDNSProvider()
-	if err != nil {
-		log.Println("Unable to initiate Cloudflare DNS Provider:", err)
-		return err
-	}
-	resolvers := []string{}
-
-	err = client.Challenge.SetDNS01Provider(dnsProvider,
-		dns01.CondOption(len(resolvers) > 0, dns01.AddRecursiveNameservers(resolvers)),
-		dns01.WrapPreCheck(func(domain, fqdn, value string, check dns01.PreCheckFunc) (bool, error) {
-			if disablePropagationCheck {
-				return true, nil
-			}
-			return check(fqdn, value)
-		}))
-	if err != nil {
-		log.Println("Unable to challenge use Cloudflare DNS Provider:", err)
 		return err
 	}
 
