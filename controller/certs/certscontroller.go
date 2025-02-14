@@ -260,6 +260,7 @@ func (c *CertsController) Delete(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, map[string]any{
 			"message": err.Error(),
 		})
+		return
 	}
 
 	ctx.JSON(http.StatusOK, map[string]any{
