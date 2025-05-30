@@ -173,22 +173,31 @@ func (c *CertsService) RenewCerts(ts int64) error {
 				log.Println("Error renewing certificate for domain", main, ":", err)
 				return err
 			}
+			renewedCertificate := renewedCert.Certificate
+			renewedPrivateKey := renewedCert.PrivateKey
 
-			if len(renewedCert.Certificate) == 0 || len(renewedCert.PrivateKey) == 0 {
+			if len(renewedCertificate) == 0 || len(renewedPrivateKey) == 0 {
 				log.Println("Certificate for domain %s is empty", main)
 				return err
 			}
 
-			// Update new key to database
-			_, err = c.certsRepository.UpsertCerts(main, sans, email, renewedCert.PrivateKey, renewedCert.Certificate,
-				crt.NotBefore.UnixMilli(), crt.NotAfter.UnixMilli(), ts)
+			renewedRes := certificate.Resource{
+				Domain:      main,
+				PrivateKey:  renewedCertificate,
+				Certificate: renewedPrivateKey,
+			}
+			renewedCrt, err := c.getX509Certificate(renewedRes)
+
+			// Update new certs to database
+			_, err = c.certsRepository.UpsertCerts(main, sans, email, renewedCertificate, renewedPrivateKey,
+				renewedCrt.NotBefore.UnixMilli(), renewedCrt.NotAfter.UnixMilli(), ts)
 			if err != nil {
 				log.Println("Failed to update certs", email, ":", err)
 				return err
 			}
 
 			// Push to webhook
-			c.webhookPush("renew", main, email, privateKey, certificate_, "", map[string]any{})
+			c.webhookPush("renew", main, email, renewedCertificate, renewedPrivateKey, "", map[string]any{})
 
 			log.Println("Success renewing certificate for domain", main)
 		}

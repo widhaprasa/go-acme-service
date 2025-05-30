@@ -62,7 +62,7 @@ func (c *CertsRepository) GetCerts(main string) (map[string]any, error) {
 	return result, nil
 }
 
-func (c *CertsRepository) GetCertsByMain(domains[] string) (map[string]any, error) {
+func (c *CertsRepository) GetCertsByMain(domains []string) (map[string]any, error) {
 
 	// Create prepared statements
 	count := len(domains)
