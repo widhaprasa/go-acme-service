@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/challenge/dns01"
