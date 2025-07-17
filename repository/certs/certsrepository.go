@@ -2,8 +2,8 @@ package certs
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -74,7 +74,7 @@ func (c *CertsRepository) GetCertsByMain(domains []string) (map[string]any, erro
 		preparedStatements[i] = "?"
 	}
 
-	stmt, err := c.Db.Prepare("SELECT * FROM certs WHERE main IN " + fmt.Sprintf("%s", preparedStatements))
+	stmt, err := c.Db.Prepare("SELECT * FROM certs WHERE main IN (" + strings.Join(preparedStatements, ", ") + ")")
 	if err != nil {
 		log.Println("Unable to query certs:", err)
 		return nil, err
