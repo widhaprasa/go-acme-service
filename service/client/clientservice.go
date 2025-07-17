@@ -103,6 +103,10 @@ func (c *ClientService) GetClient(ts int64, email string) (*lego.Client, error) 
 	}
 	resolvers := []string{}
 
+	// Set DNS-01 challenge timeout and retry intervals
+	dns01.SetResolverWaitTime(600 * time.Second)
+	dns01.SetResolverPreCheckTimeout(10 * time.Second) 
+
 	err = client.Challenge.SetDNS01Provider(dnsProvider,
 		dns01.CondOption(len(resolvers) > 0, dns01.AddRecursiveNameservers(resolvers)),
 		dns01.WrapPreCheck(func(domain, fqdn, value string, check dns01.PreCheckFunc) (bool, error) {
