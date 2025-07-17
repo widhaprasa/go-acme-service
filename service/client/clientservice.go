@@ -8,7 +8,6 @@ import (
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/challenge/dns01"
 	"github.com/go-acme/lego/v4/lego"
-	"github.com/go-acme/lego/v4/providers/dns/cloudflare"
 	"github.com/go-acme/lego/v4/registration"
 	"github.com/widhaprasa/go-acme-service/acme"
 	"github.com/widhaprasa/go-acme-service/repository/client"
@@ -97,16 +96,14 @@ func (c *ClientService) GetClient(ts int64, email string) (*lego.Client, error) 
 	}
 
 	// Using cloudflare DNS provider
-	dnsProvider, err := cloudflare.NewDNSProvider()
+	timeout := 300 * time.Second
+	interval := 10 * time.Second
+	dnsProvider, err := acme.NewCloudflareDNSCustomTimeoutProvider(timeout, interval)
 	if err != nil {
 		log.Println("Unable to initiate Cloudflare DNS Provider:", err)
 		return nil, err
 	}
 	resolvers := []string{}
-
-	// Set DNS-01 challenge timeout and retry intervals
-	dns01.SetResolverWaitTime(600 * time.Second)
-	dns01.SetResolverPreCheckTimeout(10 * time.Second) 
 
 	err = client.Challenge.SetDNS01Provider(dnsProvider,
 		dns01.CondOption(len(resolvers) > 0, dns01.AddRecursiveNameservers(resolvers)),
