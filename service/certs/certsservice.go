@@ -74,7 +74,7 @@ func (c *CertsService) GenerateCerts(ts int64, email string, domains []string, w
 
 func (c *CertsService) generateCertsJob(ts int64, email string, main string, domains []string, webhookUrl string, webhookHeaderMap map[string]any) error {
 
-	client, err := c.clientService.GetClient(ts, email)
+	client, err := c.clientService.GetClient(ts, email, main)
 	if err != nil {
 		log.Println("Unable to get client:", email)
 		return err
@@ -96,7 +96,7 @@ func (c *CertsService) generateCertsJob(ts int64, email string, main string, dom
 		return err
 	}
 	if len(cert.Certificate) == 0 || len(cert.PrivateKey) == 0 {
-		log.Println("Certificate for domain %s is empty", main)
+		log.Println("Certificate for domain", main, "is empty")
 		return err
 	}
 
@@ -108,7 +108,7 @@ func (c *CertsService) generateCertsJob(ts int64, email string, main string, dom
 		PrivateKey:  privateKey,
 		Certificate: certificate_,
 	}
-	crt, err := c.getX509Certificate(res)
+	crt, _ := c.getX509Certificate(res)
 
 	// Insert certs to database
 	_, err = c.certsRepository.UpsertCerts(main, strings.Join(domains, ","), email, privateKey, certificate_,
@@ -158,7 +158,7 @@ func (c *CertsService) RenewCerts(ts int64) error {
 			log.Println("Renewing certificates:", main)
 
 			email := certsMap["email"].(string)
-			client, err := c.clientService.GetClient(ts, email)
+			client, err := c.clientService.GetClient(ts, email, main)
 			if err != nil {
 				return err
 			}
@@ -177,7 +177,7 @@ func (c *CertsService) RenewCerts(ts int64) error {
 			renewedPrivateKey := renewedCert.PrivateKey
 
 			if len(renewedCertificate) == 0 || len(renewedPrivateKey) == 0 {
-				log.Println("Certificate for domain %s is empty", main)
+				log.Println("Certificate for domain", main, "is empty")
 				return err
 			}
 
@@ -186,7 +186,7 @@ func (c *CertsService) RenewCerts(ts int64) error {
 				PrivateKey:  renewedCertificate,
 				Certificate: renewedPrivateKey,
 			}
-			renewedCrt, err := c.getX509Certificate(renewedRes)
+			renewedCrt, _ := c.getX509Certificate(renewedRes)
 
 			// Update new certs to database
 			_, err = c.certsRepository.UpsertCerts(main, sans, email, renewedCertificate, renewedPrivateKey,

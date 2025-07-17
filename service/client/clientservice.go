@@ -3,11 +3,12 @@ package client
 import (
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/go-acme/lego/v4/certcrypto"
+	"github.com/go-acme/lego/v4/challenge"
 	"github.com/go-acme/lego/v4/challenge/dns01"
 	"github.com/go-acme/lego/v4/lego"
+	"github.com/go-acme/lego/v4/providers/dns/cloudflare"
 	"github.com/go-acme/lego/v4/registration"
 	"github.com/widhaprasa/go-acme-service/acme"
 	"github.com/widhaprasa/go-acme-service/repository/client"
@@ -17,7 +18,7 @@ type ClientService struct {
 	Clientrepository client.ClientRepository
 }
 
-func (c *ClientService) GetClient(ts int64, email string) (*lego.Client, error) {
+func (c *ClientService) GetClient(ts int64, email string, main string) (*lego.Client, error) {
 
 	// Using production CA server
 	caServer := lego.LEDirectoryProduction
@@ -96,14 +97,21 @@ func (c *ClientService) GetClient(ts int64, email string) (*lego.Client, error) 
 	}
 
 	// Using cloudflare DNS provider
-	timeout := 300 * time.Second
-	interval := 10 * time.Second
-	dnsProvider, err := acme.NewCloudflareDNSCustomTimeoutProvider(timeout, interval)
+	isDefault, timeout, interval := acme.GetTimeoutAndIntervalForDomain(main)
+	var dnsProvider challenge.Provider
+	if isDefault {
+		dnsProvider, err = cloudflare.NewDNSProvider()
+	} else {
+		dnsProvider, err = acme.NewCloudflareDNSCustomTimeoutProvider(timeout, interval)
+	}
 	if err != nil {
 		log.Println("Unable to initiate Cloudflare DNS Provider:", err)
 		return nil, err
 	}
-	resolvers := []string{}
+
+	resolvers := []string{
+		"1.1.1.1:53",
+	}
 
 	err = client.Challenge.SetDNS01Provider(dnsProvider,
 		dns01.CondOption(len(resolvers) > 0, dns01.AddRecursiveNameservers(resolvers)),
