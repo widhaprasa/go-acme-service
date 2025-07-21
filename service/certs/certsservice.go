@@ -183,8 +183,8 @@ func (c *CertsService) RenewCerts(ts int64) error {
 
 			renewedRes := certificate.Resource{
 				Domain:      main,
-				PrivateKey:  renewedCertificate,
-				Certificate: renewedPrivateKey,
+				PrivateKey:  renewedPrivateKey,
+				Certificate: renewedCertificate,
 			}
 			renewedCrt, _ := c.getX509Certificate(renewedRes)
 
