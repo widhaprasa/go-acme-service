@@ -189,7 +189,7 @@ func (c *CertsService) RenewCerts(ts int64) error {
 			renewedCrt, _ := c.getX509Certificate(renewedRes)
 
 			// Update new certs to database
-			_, err = c.certsRepository.UpsertCerts(main, sans, email, renewedCertificate, renewedPrivateKey,
+			_, err = c.certsRepository.UpsertCerts(main, sans, email, renewedPrivateKey, renewedCertificate,
 				renewedCrt.NotBefore.UnixMilli(), renewedCrt.NotAfter.UnixMilli(), ts)
 			if err != nil {
 				log.Println("Failed to update certs", email, ":", err)
@@ -197,7 +197,7 @@ func (c *CertsService) RenewCerts(ts int64) error {
 			}
 
 			// Push to webhook
-			c.webhookPush("renew", main, email, renewedCertificate, renewedPrivateKey, "", map[string]any{})
+			c.webhookPush("renew", main, email, renewedPrivateKey, renewedCertificate, "", map[string]any{})
 
 			log.Println("Success renewing certificate for domain", main)
 		}
