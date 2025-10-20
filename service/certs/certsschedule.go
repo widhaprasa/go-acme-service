@@ -7,7 +7,9 @@ func (c *CertsService) InitRenewSchedule(ts int64) {
 	renewInterval := 24 * time.Hour // Default interval, check renew certificates daily
 
 	// Check renew first
-	c.RenewCerts(ts)
+	go func() {
+		c.RenewCerts(ts)
+	}()
 
 	ticker := time.NewTicker(renewInterval)
 	done := make(chan bool)
